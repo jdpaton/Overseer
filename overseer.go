@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	port = "5600"
+	default_port = "5600"
 )
 
 func runCmd(program string, args string) int {
@@ -47,7 +47,7 @@ func reqRunCmd(program string, args string) int {
 	return pid
 }
 
-func clientReqCmd(program string, args string) {
+func clientReqCmd(program string, args string, port string) {
 	values := make(url.Values)
 
 	values.Set("program", program)
@@ -84,18 +84,19 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 	}
 }
 
-func startServer(db *levigo.DB) {
+func startServer(db *levigo.DB, port string) {
 	log.Printf("Starting server on port %s", port)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		handleReq(w, r, db)
 	})
-	http.ListenAndServe("127.0.0.1:"+port, nil)
+	http.ListenAndServe("127.0.0.1:" +  port, nil)
 }
 
 func main() {
 	var program = flag.String("program", "", "the full path to the command to be run")
 	var args = flag.String("args", "", "a string of all arguments to pass to the program")
 	var startserver = flag.Bool("server", false, "start the overseer server")
+	var port = flag.String("port", default_port, "server listen port")
 
 	flag.Parse()
 
@@ -107,11 +108,12 @@ func main() {
 		}
 		defer db.Close()
 
-		startServer(db)
+
+		startServer(db, *port)
 	} else if *program == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
 	} else if *program != "" && *args != "" {
-		clientReqCmd(*program, *args)
+		clientReqCmd(*program, *args, *port)
 	}
 }
