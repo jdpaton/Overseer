@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"github.com/jmhodges/levigo"
@@ -11,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/user"
+	"path"
 	"strconv"
 )
 
@@ -18,23 +19,32 @@ const (
 	default_port = "5600"
 )
 
-func runCmd(program string, args string) int {
+func runCmd(id, program, args string) int {
+
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log_dir := path.Join(usr.HomeDir, ".overseer", "logs")
+        stdout_file, err := os.Create(path.Join(log_dir, id + "-stdout.log"))
+        stderr_file, err := os.Create(path.Join(log_dir, id + "-stderr.log"))
+
+        if err != nil {
+          log.Printf("Failed to open log file: %v", err)
+          return -1
+        }
 
 	log.Printf("New request to run: `%s %s`", program, args)
 	cmd := exec.Command(program, args)
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	cmd.Stdout = stdout_file
+	cmd.Stderr = stderr_file
 
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Start()
+	err = cmd.Start()
 
 	if err != nil {
 		log.Printf("Failed to run command: %v", err)
-		log.Printf("Command stdout: %s\n", stdout.String())
-		log.Printf("Command stderr: %s\n", stderr.String())
 		return -1
 	}
 
@@ -42,12 +52,13 @@ func runCmd(program string, args string) int {
 
 }
 
-func reqRunCmd(program string, args string) int {
-	pid := runCmd(program, args)
-	return pid
+func reqRunCmd(program, args string) (string, int) {
+        id  := randString(8)
+	pid := runCmd(id, program, args)
+	return id, pid
 }
 
-func clientReqCmd(program string, args string, port string) {
+func clientReqCmd(program, args, port string) {
 	values := make(url.Values)
 
 	values.Set("program", program)
@@ -68,8 +79,8 @@ func clientReqCmd(program string, args string, port string) {
 func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 	/* Start */
 	if r.Method == "POST" && r.URL.Path[1:] == "new" {
-		pid := reqRunCmd(r.FormValue("program"), r.FormValue("args"))
-		fmt.Fprintf(w, "PID: %d", pid)
+		id, pid := reqRunCmd(r.FormValue("program"), r.FormValue("args"))
+                fmt.Fprintf(w, "ID: %s PID: %d", id, pid)
 	}
 	/* Stop */
 	if r.Method == "POST" && r.URL.Path[1:] == "stop" {
@@ -89,7 +100,7 @@ func startServer(db *levigo.DB, port string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		handleReq(w, r, db)
 	})
-	http.ListenAndServe("127.0.0.1:" +  port, nil)
+	http.ListenAndServe("127.0.0.1:"+port, nil)
 }
 
 func main() {
@@ -107,7 +118,6 @@ func main() {
 			log.Fatal("Cannot open database", dberr)
 		}
 		defer db.Close()
-
 
 		startServer(db, *port)
 	} else if *program == "" {
