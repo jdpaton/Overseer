@@ -27,13 +27,13 @@ func runCmd(id, program, args string) int {
 	}
 
 	log_dir := path.Join(usr.HomeDir, ".overseer", "logs")
-        stdout_file, err := os.Create(path.Join(log_dir, id + "-stdout.log"))
-        stderr_file, err := os.Create(path.Join(log_dir, id + "-stderr.log"))
+	stdout_file, err := os.Create(path.Join(log_dir, id+"-stdout.log"))
+	stderr_file, err := os.Create(path.Join(log_dir, id+"-stderr.log"))
 
-        if err != nil {
-          log.Printf("Failed to open log file: %v", err)
-          return -1
-        }
+	if err != nil {
+		log.Printf("Failed to open log file: %v", err)
+		return -1
+	}
 
 	log.Printf("New request to run: `%s %s`", program, args)
 	cmd := exec.Command(program, args)
@@ -53,7 +53,7 @@ func runCmd(id, program, args string) int {
 }
 
 func reqRunCmd(program, args string) (string, int) {
-        id  := randString(8)
+	id := randString(8)
 	pid := runCmd(id, program, args)
 	return id, pid
 }
@@ -80,7 +80,7 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 	/* Start */
 	if r.Method == "POST" && r.URL.Path[1:] == "new" {
 		id, pid := reqRunCmd(r.FormValue("program"), r.FormValue("args"))
-                fmt.Fprintf(w, "ID: %s PID: %d", id, pid)
+		fmt.Fprintf(w, "ID: %s PID: %d", id, pid)
 	}
 	/* Stop */
 	if r.Method == "POST" && r.URL.Path[1:] == "stop" {
