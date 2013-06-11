@@ -113,7 +113,7 @@ func main() {
 	} else if *program == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
-	} else if *program != "" && *args != "" {
+	} else if *program != "" {
 		clientReqCmd(*program, *args, *port)
 	}
 }
