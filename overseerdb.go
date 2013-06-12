@@ -9,7 +9,6 @@ import (
 	"strconv"
 )
 
-
 func InitDB() (*levigo.DB, error) {
 	opts := levigo.NewOptions()
 	opts.SetCache(levigo.NewLRUCache(1024 * 1024))
@@ -30,12 +29,11 @@ func InitDB() (*levigo.DB, error) {
 }
 
 func isProcAlive(pid int) bool {
-	proc, err := os.FindProcess(pid)
+	_, err := os.FindProcess(pid)
 	if err != nil {
 		return false
 	}
-	fmt.Println(proc)
-	return true
+        return true
 }
 
 func removeProc(pid int, db *levigo.DB) error {

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/jmhodges/levigo"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,16 +21,62 @@ const (
 	default_port = "5600"
 )
 
-func runCmd(id, program, args string) int {
+func getLogs(response http.ResponseWriter, id, log_type string) {
 
+	var log_file string
+
+	if log_type == "out" {
+		log_file = "-stdout.log"
+	} else if log_type == "err" {
+		log_file = "-stderr.log"
+	} else {
+          response.WriteHeader(400)
+          response.Write([]byte("Unknown log type requested: " + log_type + "\n"))
+          return
+	}
+
+	log_file = id + log_file
+	fi, err := os.Open(path.Join(logDir(), log_file))
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := fi.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	r := bufio.NewReader(fi)
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := r.Read(buf)
+		if err != nil && err != io.EOF {
+			panic(err)
+		}
+		if n == 0 {
+			break
+		}
+
+		if _, err := response.Write(buf[:n]); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func logDir() string {
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
+	return path.Join(usr.HomeDir, ".overseer", "logs")
+}
 
-	log_dir := path.Join(usr.HomeDir, ".overseer", "logs")
-	stdout_file, err := os.Create(path.Join(log_dir, id+"-stdout.log"))
-	stderr_file, err := os.Create(path.Join(log_dir, id+"-stderr.log"))
+func runCmd(id, program, args string) int {
+
+	stdout_file, err := os.Create(path.Join(logDir(), id+"-stdout.log"))
+	stderr_file, err := os.Create(path.Join(logDir(), id+"-stderr.log"))
 
 	if err != nil {
 		log.Printf("Failed to open log file: %v", err)
@@ -80,6 +128,7 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 	/* Start */
 	if r.Method == "POST" && r.URL.Path[1:] == "new" {
 		id, pid := reqRunCmd(r.FormValue("program"), r.FormValue("args"))
+		AddProc(pid, db)
 		fmt.Fprintf(w, "ID: %s PID: %d", id, pid)
 	}
 	/* Stop */
@@ -92,6 +141,13 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 			return
 		}
 		fmt.Fprintf(w, "Stopped PID %d", pid)
+	}
+	/* Logs */
+	if r.Method == "GET" && r.URL.Path[1:] == "logs" {
+		id := r.URL.Query().Get("id")
+		std_pipe := r.URL.Query().Get("type")
+		getLogs(w, id, std_pipe)
+
 	}
 }
 
