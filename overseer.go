@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/jmhodges/levigo"
@@ -30,9 +31,9 @@ func getLogs(response http.ResponseWriter, id, log_type string) {
 	} else if log_type == "err" {
 		log_file = "-stderr.log"
 	} else {
-          response.WriteHeader(400)
-          response.Write([]byte("Unknown log type requested: " + log_type + "\n"))
-          return
+		response.WriteHeader(400)
+		response.Write([]byte("Unknown log type requested: " + log_type + "\n"))
+		return
 	}
 
 	log_file = id + log_file
@@ -148,6 +149,25 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 		std_pipe := r.URL.Query().Get("type")
 		getLogs(w, id, std_pipe)
 
+	}
+
+	/* List proceses */
+	if r.Method == "GET" && r.URL.Path[1:] == "procs" {
+
+		procs, err := ListProcs(db)
+		if err != nil {
+			log.Print(err)
+			procs = []string{}
+		}
+
+		p, err := json.Marshal(procs)
+		if err != nil {
+			log.Print(err)
+			p = []byte{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, string(p))
 	}
 }
 

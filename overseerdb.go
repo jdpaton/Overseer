@@ -7,6 +7,7 @@ import (
 	"github.com/jmhodges/levigo"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func InitDB() (*levigo.DB, error) {
@@ -33,7 +34,7 @@ func isProcAlive(pid int) bool {
 	if err != nil {
 		return false
 	}
-        return true
+	return true
 }
 
 func removeProc(pid int, db *levigo.DB) error {
@@ -88,4 +89,17 @@ func AddProc(procID int, db *levigo.DB) error {
 
 	err = db.Put(wo, []byte("procs"), []byte(strdata))
 	return err
+}
+
+func ListProcs(db *levigo.DB) ([]string, error) {
+	ro := levigo.NewReadOptions()
+	procs, err := db.Get(ro, []byte("procs"))
+
+	if err != nil {
+		return []string{}, err
+	}
+
+	procs_str := strings.Split(string(procs), ":")
+	return procs_str, err
+
 }

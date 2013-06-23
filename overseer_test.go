@@ -1,9 +1,9 @@
 package main
 
 import (
-  "testing"
+	"testing"
 )
 
 func Test_ServerAlive(t *testing.T) {
-  t.Log("ok")
+	t.Log("ok")
 }
