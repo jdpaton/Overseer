@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jmhodges/levigo"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 func InitDB() (*levigo.DB, error) {
@@ -26,15 +28,34 @@ func InitDB() (*levigo.DB, error) {
 		return nil, err
 	}
 
+	procs, err := ListProcs(db)
+	for p, status := range procs {
+		log.Printf("Proc ID: %d, status: %d", p, status)
+		if isProcAlive(p) == false {
+			setProcStatus(db, p, PROC_STOPPED)
+		} else {
+			setProcStatus(db, p, PROC_ALIVE)
+		}
+	}
 	return db, nil
 }
 
+func setProcStatus(db *levigo.DB, pid, status int) {
+	wo := levigo.NewWriteOptions()
+	key := "status:" + strconv.Itoa(pid)
+	db.Put(wo, []byte(key), []byte(strconv.Itoa(status)))
+}
+
 func isProcAlive(pid int) bool {
-	_, err := os.FindProcess(pid)
-	if err != nil {
+	// Doesn't work as expected on POSIX systems
+	// - https://groups.google.com/forum/#!topic/golang-nuts/WtIsS9dzy68
+	//_, err := os.FindProcess(pid)
+	if err := syscall.Kill(pid, 0); err != nil {
 		return false
+	} else {
+		return true
 	}
-	return true
+
 }
 
 func removeProc(pid int, db *levigo.DB) error {
@@ -91,15 +112,23 @@ func AddProc(procID int, db *levigo.DB) error {
 	return err
 }
 
-func ListProcs(db *levigo.DB) ([]string, error) {
+func ListProcs(db *levigo.DB) (map[int]int, error) {
 	ro := levigo.NewReadOptions()
 	procs, err := db.Get(ro, []byte("procs"))
 
 	if err != nil {
-		return []string{}, err
+		return map[int]int{}, err
 	}
 
-	procs_str := strings.Split(string(procs), ":")
-	return procs_str, err
+	procs_arr := strings.Split(string(procs), ":")
+	var procs_arr2 = map[int]int{}
+	for _, p := range procs_arr {
+		status, err := db.Get(ro, []byte("status:"+p))
+		if err == nil {
+			p_int, _ := strconv.Atoi(p)
+			procs_arr2[p_int], _ = strconv.Atoi(string(status))
+		}
+	}
+	return procs_arr2, err
 
 }

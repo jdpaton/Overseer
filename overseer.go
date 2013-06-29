@@ -21,6 +21,9 @@ import (
 const (
 	default_port = "5600"
 	server_name  = "Overseer-1.0"
+	PROC_ALIVE   = 100
+	PROC_STOPPED = 200
+	PROC_ERROR   = 900
 )
 
 func getLogs(response http.ResponseWriter, id, log_type string) {
@@ -164,11 +167,17 @@ func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
 
 		procs, err := ListProcs(db)
 		if err != nil {
+			w.WriteHeader(500)
 			log.Print(err)
-			procs = []string{}
+			return
 		}
 
-		p, err := json.Marshal(procs)
+		var strProcs = map[string]string{}
+		for k, v := range procs {
+			strProcs[strconv.Itoa(k)] = strconv.Itoa(v)
+		}
+
+		p, err := json.Marshal(strProcs)
 		if err != nil {
 			log.Print(err)
 			p = []byte{}
