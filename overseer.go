@@ -20,6 +20,7 @@ import (
 
 const (
 	default_port = "5600"
+	server_name  = "Overseer-1.0"
 )
 
 func getLogs(response http.ResponseWriter, id, log_type string) {
@@ -126,6 +127,13 @@ func clientReqCmd(program, args, port string) {
 }
 
 func handleReq(w http.ResponseWriter, r *http.Request, db *levigo.DB) {
+
+	w.Header().Set("Server-Name", server_name)
+
+	if r.Method == "HEAD" {
+		w.WriteHeader(501)
+	}
+
 	/* Start */
 	if r.Method == "POST" && r.URL.Path[1:] == "new" {
 		id, pid := reqRunCmd(r.FormValue("program"), r.FormValue("args"))

@@ -12,5 +12,6 @@ server:
 clean:
 	rm -f ./overseer
 	go fmt *.go
+	go clean
 
 all: clean build test server
